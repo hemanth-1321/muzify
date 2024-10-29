@@ -1,21 +1,16 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { ThumbsUp, ThumbsDown, Play, SkipForward } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Play, SkipForward, Share2 } from "lucide-react";
 import { Appbar } from "@/components/Appbar";
-
-// Define the structure of a video item
-interface VideoItem {
-  id: string;
-  title: string;
-  votes: number;
-}
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Helper function to extract video ID from YouTube URL
-const getYouTubeID = (url: string): string | null => {
+const getYouTubeID = (url: string) => {
   const regExp =
     /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
@@ -23,8 +18,8 @@ const getYouTubeID = (url: string): string | null => {
 };
 
 export default function Component() {
-  const [videoUrl, setVideoUrl] = useState<string>("");
-  const [videoQueue, setVideoQueue] = useState<VideoItem[]>([
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoQueue, setVideoQueue] = useState([
     {
       id: "dQw4w9WgXcQ",
       title: "Rick Astley - Never Gonna Give You Up",
@@ -33,22 +28,15 @@ export default function Component() {
     { id: "L_jWHffIx5E", title: "Smash Mouth - All Star", votes: 3 },
     { id: "fJ9rUzIMcZQ", title: "Queen - Bohemian Rhapsody", votes: 4 },
   ]);
-  const [currentVideo, setCurrentVideo] = useState<string>("");
+  const [currentVideo, setCurrentVideo] = useState("dQw4w9WgXcQ");
 
-  // Set initial video on client-side only
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setCurrentVideo("dQw4w9WgXcQ");
-    }
-  }, []);
-
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const videoId = getYouTubeID(videoUrl);
     if (videoId) {
       // In a real app, you'd fetch the video title from the YouTube API
-      setVideoQueue((prevQueue) => [
-        ...prevQueue,
+      setVideoQueue([
+        ...videoQueue,
         { id: videoId, title: "New Video", votes: 0 },
       ]);
       setVideoUrl("");
@@ -56,18 +44,45 @@ export default function Component() {
   };
 
   const handleVote = (index: number, increment: number) => {
-    setVideoQueue((prevQueue) => {
-      const newQueue = [...prevQueue];
-      newQueue[index].votes += increment;
-      newQueue.sort((a, b) => b.votes - a.votes);
-      return newQueue;
-    });
+    const newQueue = [...videoQueue];
+    newQueue[index].votes += increment;
+    newQueue.sort((a, b) => b.votes - a.votes);
+    setVideoQueue(newQueue);
   };
 
   const playNext = () => {
     if (videoQueue.length > 0) {
       setCurrentVideo(videoQueue[0].id);
-      setVideoQueue((prevQueue) => prevQueue.slice(1));
+      setVideoQueue(videoQueue.slice(1));
+    }
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: "Check out this YouTube Jukebox!",
+      text: "Join our YouTube Jukebox and listen to music together!",
+      url: window.location.href,
+    };
+
+    if (navigator.share && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        toast.success("Shared successfully! The jukebox link has been shared.");
+      } catch (err) {
+        console.error("Error sharing:", err);
+      }
+    } else {
+      // Fallback to copying the URL to clipboard
+      navigator.clipboard.writeText(window.location.href).then(
+        () => {
+          toast.success(
+            "Link copied! The jukebox link has been copied to your clipboard."
+          );
+        },
+        (err) => {
+          console.error("Could not copy text: ", err);
+        }
+      );
     }
   };
 
@@ -79,21 +94,24 @@ export default function Component() {
           <div>
             <h2 className="text-2xl font-semibold mb-4">Currently Playing</h2>
             <div className="aspect-video mb-4">
-              {currentVideo && (
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src={`https://www.youtube.com/embed/${currentVideo}`}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title="Currently playing video"
-                ></iframe>
-              )}
+              <iframe
+                width="100%"
+                height="100%"
+                src={`https://www.youtube.com/embed/${currentVideo}`}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title="Currently playing video"
+              ></iframe>
             </div>
-            <Button onClick={playNext} className="w-full mb-4">
-              <Play className="mr-2 h-4 w-4" /> Play Next Song
-            </Button>
+            <div className="flex gap-2 mb-4">
+              <Button onClick={playNext} className="flex-grow">
+                <Play className="mr-2 h-4 w-4" /> Play Next Song
+              </Button>
+              <Button onClick={handleShare} className="flex-shrink-0">
+                <Share2 className="mr-2 h-4 w-4" /> Share
+              </Button>
+            </div>
 
             <h3 className="text-xl font-semibold mb-2">Next Up</h3>
             {videoQueue.length > 0 ? (
@@ -176,6 +194,7 @@ export default function Component() {
           </div>
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 }
