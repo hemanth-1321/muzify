@@ -1,200 +1,129 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { ThumbsUp, ThumbsDown, Play, SkipForward, Share2 } from "lucide-react";
-import { Appbar } from "@/components/Appbar";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import * as React from "react"
+import * as ToastPrimitives from "@radix-ui/react-toast"
+import { cva, type VariantProps } from "class-variance-authority"
+import { X } from "lucide-react"
 
-// Helper function to extract video ID from YouTube URL
-const getYouTubeID = (url: string) => {
-  const regExp =
-    /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return match && match[2].length === 11 ? match[2] : null;
-};
+import { cn } from "@/lib/utils"
 
-export default function Component() {
-  const [videoUrl, setVideoUrl] = useState("");
-  const [videoQueue, setVideoQueue] = useState([
-    {
-      id: "dQw4w9WgXcQ",
-      title: "Rick Astley - Never Gonna Give You Up",
-      votes: 5,
+const ToastProvider = ToastPrimitives.Provider
+
+const ToastViewport = React.forwardRef<
+  React.ElementRef<typeof ToastPrimitives.Viewport>,
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>
+>(({ className, ...props }, ref) => (
+  <ToastPrimitives.Viewport
+    ref={ref}
+    className={cn(
+      "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
+      className
+    )}
+    {...props}
+  />
+))
+ToastViewport.displayName = ToastPrimitives.Viewport.displayName
+
+const toastVariants = cva(
+  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
+  {
+    variants: {
+      variant: {
+        default: "border bg-background text-foreground",
+        destructive:
+          "destructive group border-destructive bg-destructive text-destructive-foreground",
+      },
     },
-    { id: "L_jWHffIx5E", title: "Smash Mouth - All Star", votes: 3 },
-    { id: "fJ9rUzIMcZQ", title: "Queen - Bohemian Rhapsody", votes: 4 },
-  ]);
-  const [currentVideo, setCurrentVideo] = useState("dQw4w9WgXcQ");
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const videoId = getYouTubeID(videoUrl);
-    if (videoId) {
-      // In a real app, you'd fetch the video title from the YouTube API
-      setVideoQueue([
-        ...videoQueue,
-        { id: videoId, title: "New Video", votes: 0 },
-      ]);
-      setVideoUrl("");
-    }
-  };
-
-  const handleVote = (index: number, increment: number) => {
-    const newQueue = [...videoQueue];
-    newQueue[index].votes += increment;
-    newQueue.sort((a, b) => b.votes - a.votes);
-    setVideoQueue(newQueue);
-  };
-
-  const playNext = () => {
-    if (videoQueue.length > 0) {
-      setCurrentVideo(videoQueue[0].id);
-      setVideoQueue(videoQueue.slice(1));
-    }
-  };
-
-  const handleShare = async () => {
-    const shareData = {
-      title: "Check out this YouTube Jukebox!",
-      text: "Join our YouTube Jukebox and listen to music together!",
-      url: window.location.href,
-    };
-
-    if (navigator.share && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData);
-        toast.success("Shared successfully! The jukebox link has been shared.");
-      } catch (err) {
-        console.error("Error sharing:", err);
-      }
-    } else {
-      // Fallback to copying the URL to clipboard
-      navigator.clipboard.writeText(window.location.href).then(
-        () => {
-          toast.success(
-            "Link copied! The jukebox link has been copied to your clipboard."
-          );
-        },
-        (err) => {
-          console.error("Could not copy text: ", err);
-        }
-      );
-    }
-  };
-
+const Toast = React.forwardRef<
+  React.ElementRef<typeof ToastPrimitives.Root>,
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
+    VariantProps<typeof toastVariants>
+>(({ className, variant, ...props }, ref) => {
   return (
-    <div className="flex flex-col min-h-screen bg-gray-900 text-gray-100">
-      <Appbar />
-      <div className="container mx-auto p-4 flex-grow">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Currently Playing</h2>
-            <div className="aspect-video mb-4">
-              <iframe
-                width="100%"
-                height="100%"
-                src={`https://www.youtube.com/embed/${currentVideo}`}
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                title="Currently playing video"
-              ></iframe>
-            </div>
-            <div className="flex gap-2 mb-4">
-              <Button onClick={playNext} className="flex-grow">
-                <Play className="mr-2 h-4 w-4" /> Play Next Song
-              </Button>
-              <Button onClick={handleShare} className="flex-shrink-0">
-                <Share2 className="mr-2 h-4 w-4" /> Share
-              </Button>
-            </div>
+    <ToastPrimitives.Root
+      ref={ref}
+      className={cn(toastVariants({ variant }), className)}
+      {...props}
+    />
+  )
+})
+Toast.displayName = ToastPrimitives.Root.displayName
 
-            <h3 className="text-xl font-semibold mb-2">Next Up</h3>
-            {videoQueue.length > 0 ? (
-              <Card className="bg-gray-800">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold">{videoQueue[0].title}</h4>
-                      <p className="text-sm text-gray-400">
-                        Votes: {videoQueue[0].votes}
-                      </p>
-                    </div>
-                    <SkipForward className="h-6 w-6" />
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <p>No songs in the queue</p>
-            )}
-          </div>
+const ToastAction = React.forwardRef<
+  React.ElementRef<typeof ToastPrimitives.Action>,
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Action>
+>(({ className, ...props }, ref) => (
+  <ToastPrimitives.Action
+    ref={ref}
+    className={cn(
+      "inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 group-[.destructive]:border-muted/40 group-[.destructive]:hover:border-destructive/30 group-[.destructive]:hover:bg-destructive group-[.destructive]:hover:text-destructive-foreground group-[.destructive]:focus:ring-destructive",
+      className
+    )}
+    {...props}
+  />
+))
+ToastAction.displayName = ToastPrimitives.Action.displayName
 
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Add a Song</h2>
-            <form onSubmit={handleSubmit} className="flex gap-2 mb-6">
-              <Input
-                type="text"
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="Paste YouTube URL here"
-                className="flex-grow"
-              />
-              <Button type="submit">Add</Button>
-            </form>
+const ToastClose = React.forwardRef<
+  React.ElementRef<typeof ToastPrimitives.Close>,
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Close>
+>(({ className, ...props }, ref) => (
+  <ToastPrimitives.Close
+    ref={ref}
+    className={cn(
+      "absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600",
+      className
+    )}
+    toast-close=""
+    {...props}
+  >
+    <X className="h-4 w-4" />
+  </ToastPrimitives.Close>
+))
+ToastClose.displayName = ToastPrimitives.Close.displayName
 
-            {videoUrl && getYouTubeID(videoUrl) && (
-              <div className="aspect-video mb-4">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src={`https://www.youtube.com/embed/${getYouTubeID(
-                    videoUrl
-                  )}`}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title="Video preview"
-                ></iframe>
-              </div>
-            )}
+const ToastTitle = React.forwardRef<
+  React.ElementRef<typeof ToastPrimitives.Title>,
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Title>
+>(({ className, ...props }, ref) => (
+  <ToastPrimitives.Title
+    ref={ref}
+    className={cn("text-sm font-semibold", className)}
+    {...props}
+  />
+))
+ToastTitle.displayName = ToastPrimitives.Title.displayName
 
-            <h2 className="text-2xl font-semibold mb-4">Upcoming Songs</h2>
-            <div className="space-y-4">
-              {videoQueue.slice(1).map((video, index) => (
-                <Card key={video.id} className="bg-gray-800">
-                  <CardContent className="flex items-center justify-between p-4">
-                    <div className="flex-grow">
-                      <h3 className="font-semibold">{video.title}</h3>
-                      <p className="text-sm text-gray-400">
-                        Votes: {video.votes}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleVote(index + 1, 1)}
-                      >
-                        <ThumbsUp className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleVote(index + 1, -1)}
-                      >
-                        <ThumbsDown className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-      <ToastContainer />
-    </div>
-  );
+const ToastDescription = React.forwardRef<
+  React.ElementRef<typeof ToastPrimitives.Description>,
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description>
+>(({ className, ...props }, ref) => (
+  <ToastPrimitives.Description
+    ref={ref}
+    className={cn("text-sm opacity-90", className)}
+    {...props}
+  />
+))
+ToastDescription.displayName = ToastPrimitives.Description.displayName
+
+type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
+
+type ToastActionElement = React.ReactElement<typeof ToastAction>
+
+export {
+  type ToastProps,
+  type ToastActionElement,
+  ToastProvider,
+  ToastViewport,
+  Toast,
+  ToastTitle,
+  ToastDescription,
+  ToastClose,
+  ToastAction,
 }

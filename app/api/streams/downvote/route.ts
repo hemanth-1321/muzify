@@ -31,10 +31,14 @@ export async function POST(req: NextRequest) {
     await prismaClient.upvote.delete({
       where: {
         userId_streamId: {
+          //unique constraint
           userId: user.id,
           streamId: data.streamId,
         },
       },
+    });
+    return NextResponse.json({
+      message: "upvoted!",
     });
   } catch (error) {
     return NextResponse.json(

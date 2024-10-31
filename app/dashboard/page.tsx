@@ -4,17 +4,18 @@ import { useState, useEffect, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { ThumbsUp, ThumbsDown, Play, SkipForward } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Play, SkipForward, Share2 } from "lucide-react";
 import { Appbar } from "@/components/Appbar";
-
-// Define the structure of a video item
+import axios from "axios";
+import LiteYouTubeEmbed from "react-lite-youtube-embed";
+import "react-lite-youtube-embed/dist/LiteYouTubeEmbed.css";
+import { YT_REGEX } from "../lib/utils";
 interface VideoItem {
   id: string;
   title: string;
   votes: number;
 }
 
-// Helper function to extract video ID from YouTube URL
 const getYouTubeID = (url: string): string | null => {
   const regExp =
     /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -22,52 +23,100 @@ const getYouTubeID = (url: string): string | null => {
   return match && match[2].length === 11 ? match[2] : null;
 };
 
-export default function Component() {
-  const [videoUrl, setVideoUrl] = useState<string>("");
-  const [videoQueue, setVideoQueue] = useState<VideoItem[]>([
-    {
-      id: "dQw4w9WgXcQ",
-      title: "Rick Astley - Never Gonna Give You Up",
-      votes: 5,
-    },
-    { id: "L_jWHffIx5E", title: "Smash Mouth - All Star", votes: 3 },
-    { id: "fJ9rUzIMcZQ", title: "Queen - Bohemian Rhapsody", votes: 4 },
-  ]);
-  const [currentVideo, setCurrentVideo] = useState<string>("");
+const REFRESH_INTERVAL_MS = 10 * 1000;
 
-  // Set initial video on client-side only
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setCurrentVideo("dQw4w9WgXcQ");
+export default function Component() {
+  const [streams, setStreams] = useState<VideoItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string>("");
+  const [currentVideo, setCurrentVideo] = useState<string | null>(null);
+
+  async function refreshStreams() {
+    try {
+      const res = await axios.get("/api/streams/myStreams", {
+        withCredentials: true,
+      });
+      setStreams(res.data.streams);
+    } catch (error) {
+      console.error("Error fetching streams:", error);
+      setError("Failed to load streams.");
     }
+  }
+
+  useEffect(() => {
+    refreshStreams();
+    const interval = setInterval(refreshStreams, REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleSubmit = (e: FormEvent) => {
+  useEffect(() => {
+    if (streams.length > 0) {
+      setCurrentVideo(streams[0].id); // Set the first video in the queue as current
+    }
+  }, [streams]);
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const videoId = getYouTubeID(videoUrl);
     if (videoId) {
-      // In a real app, you'd fetch the video title from the YouTube API
-      setVideoQueue((prevQueue) => [
-        ...prevQueue,
-        { id: videoId, title: "New Video", votes: 0 },
-      ]);
-      setVideoUrl("");
+      try {
+        await axios.post("/api/streams", {
+          creatorId: "e1412b11-b8d4-4251-add5-36ad223dcb9c",
+          url: videoUrl,
+        });
+        setVideoUrl("");
+        refreshStreams();
+      } catch (error) {
+        console.error("Error adding video:", error);
+        setError("Failed to add video.");
+      }
     }
   };
 
-  const handleVote = (index: number, increment: number) => {
-    setVideoQueue((prevQueue) => {
-      const newQueue = [...prevQueue];
-      newQueue[index].votes += increment;
-      newQueue.sort((a, b) => b.votes - a.votes);
-      return newQueue;
-    });
+  const handleVote = async (id: string, isUpvote: boolean) => {
+    // Update the local state for the vote count
+    setStreams((prevStreams) =>
+      prevStreams
+        .map((video) =>
+          video.id === id
+            ? {
+                ...video,
+                votes: isUpvote
+                  ? video.votes + 1
+                  : Math.max(video.votes - 1, 0),
+              }
+            : video
+        )
+        .sort((a, b) => b.votes - a.votes)
+    );
+
+    // Make an API request to update the vote on the server
+    try {
+      await axios.post(`/api/streams/${isUpvote ? "upvote" : "downvote"}`, {
+        streamId: id,
+      });
+    } catch (error) {
+      console.error("Error updating vote:", error);
+      setError("Failed to update the vote.");
+    }
   };
 
   const playNext = () => {
-    if (videoQueue.length > 0) {
-      setCurrentVideo(videoQueue[0].id);
-      setVideoQueue((prevQueue) => prevQueue.slice(1));
+    if (streams.length > 0) {
+      setCurrentVideo(streams[0].id);
+      setStreams((prevStreams) => prevStreams.slice(1));
+    }
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: "Check out this page",
+        text: "Have a look at this video-sharing page!",
+        url: window.location.href,
+      });
+    } else {
+      alert("Sharing is not supported on this browser.");
     }
   };
 
@@ -94,16 +143,19 @@ export default function Component() {
             <Button onClick={playNext} className="w-full mb-4">
               <Play className="mr-2 h-4 w-4" /> Play Next Song
             </Button>
+            <Button onClick={handleShare} className="w-full mb-4">
+              <Share2 className="mr-2 h-4 w-4" /> Share This Page
+            </Button>
 
             <h3 className="text-xl font-semibold mb-2">Next Up</h3>
-            {videoQueue.length > 0 ? (
+            {streams.length > 0 ? (
               <Card className="bg-gray-800">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-semibold">{videoQueue[0].title}</h4>
+                      <h4 className="font-semibold">{streams[0].title}</h4>
                       <p className="text-sm text-gray-400">
-                        Votes: {videoQueue[0].votes}
+                        Votes: {streams[0].votes}
                       </p>
                     </div>
                     <SkipForward className="h-6 w-6" />
@@ -128,25 +180,17 @@ export default function Component() {
               <Button type="submit">Add</Button>
             </form>
 
-            {videoUrl && getYouTubeID(videoUrl) && (
-              <div className="aspect-video mb-4">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src={`https://www.youtube.com/embed/${getYouTubeID(
-                    videoUrl
-                  )}`}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title="Video preview"
-                ></iframe>
-              </div>
+            {videoUrl && videoUrl.match(YT_REGEX) && (
+              <Card className="bg-gray-900 border-gray-800">
+                <CardContent className="p-4">
+                  <LiteYouTubeEmbed id={videoUrl.split("?v=")[1]} title="" />
+                </CardContent>
+              </Card>
             )}
 
             <h2 className="text-2xl font-semibold mb-4">Upcoming Songs</h2>
             <div className="space-y-4">
-              {videoQueue.slice(1).map((video, index) => (
+              {streams.slice(1).map((video) => (
                 <Card key={video.id} className="bg-gray-800">
                   <CardContent className="flex items-center justify-between p-4">
                     <div className="flex-grow">
@@ -157,16 +201,15 @@ export default function Component() {
                     </div>
                     <div className="flex gap-2">
                       <Button
+                        variant="ghost"
                         size="sm"
-                        onClick={() => handleVote(index + 1, 1)}
+                        onClick={() => handleVote(video.id, !video.votes)}
                       >
-                        <ThumbsUp className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleVote(index + 1, -1)}
-                      >
-                        <ThumbsDown className="h-4 w-4" />
+                        {video.votes > 0 ? (
+                          <ThumbsDown className="h-4 w-4" />
+                        ) : (
+                          <ThumbsUp className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </CardContent>

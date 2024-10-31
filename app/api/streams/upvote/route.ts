@@ -34,11 +34,16 @@ export async function POST(req: NextRequest) {
         streamId: data.streamId,
       },
     });
+    return NextResponse.json({
+      message: "upvoted!",
+    });
   } catch (error) {
+    console.error("Error while upvoting:", error);
     return NextResponse.json(
       {
         message: "Error while upvoting",
       },
+
       {
         status: 403,
       }

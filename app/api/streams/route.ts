@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { number, z } from "zod";
 import { prismaClient } from "@/app/lib/db";
-const YT_REGEX = new RegExp(
-  /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/(watch\?v=|embed\/|v\/|.+\?v=)?([a-zA-Z0-9_-]{11})(\S+)?$/
-);
 
 //@ts-ignore
 import youtubesearchapi from "youtube-search-api";
+import { YT_REGEX } from "@/app/lib/utils";
 const CreatStreamSchema = z.object({
   creatorId: z.string(),
   url: z.string(),
@@ -34,7 +32,7 @@ export async function POST(req: NextRequest) {
     thumbnails.sort((a: { width: number }, b: { width: number }) =>
       a.width < b.width ? -1 : 1
     );
-    await prismaClient.stream.create({
+    const stream = await prismaClient.stream.create({
       data: {
         userId: data.creatorId,
         url: data.url,
@@ -53,17 +51,16 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({
-      message: "Added a stream",
-      url: data.url,
-      extractedId,
-      type: "Youtube",
-      userId: data.creatorId,
+      ...stream,
+      hasUpVoted: false,
+      upvotes: 0,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.log(error);
     return NextResponse.json(
       {
         message: "Error while adding a stream",
+        details: error.errors,
       },
       {
         status: 411,

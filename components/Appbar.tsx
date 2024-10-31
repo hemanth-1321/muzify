@@ -1,11 +1,19 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Music } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export function Appbar() {
   const session = useSession();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!session.data?.user) {
+      router.push("/");
+    }
+  }, [session, router]);
 
   const handleSignOut = async () => {
     setLoading(true);
@@ -21,15 +29,12 @@ export function Appbar() {
 
   return (
     <div className="flex items-center justify-between p-4 bg-gray-900 shadow-lg">
-      {/* Logo and title */}
       <div className="flex items-center space-x-3">
         <Music className="text-yellow-500" size={28} />
         <span className="text-2xl font-bold text-white hidden sm:block">
           MuZify
         </span>
       </div>
-
-      {/* Sign in/out button */}
       <div>
         {session.data?.user ? (
           <button
