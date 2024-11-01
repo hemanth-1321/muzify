@@ -28,7 +28,7 @@ export function Appbar() {
   };
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gray-900 shadow-lg">
+    <div className="flex items-center justify-between p-4 bg-gray-900 shadow-lg ">
       <div className="flex items-center space-x-3">
         <Music className="text-yellow-500" size={28} />
         <span className="text-2xl font-bold text-white hidden sm:block">

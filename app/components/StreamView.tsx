@@ -30,29 +30,34 @@ const REFRESH_INTERVAL_MS = 5 * 1000;
 
 export default function StreamView({ creatorId }: { creatorId: string }) {
   const [streams, setStreams] = useState<VideoItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [currentVideo, setCurrentVideo] = useState<string | null>(null);
   const [likedVideos, setLikedVideos] = useState<{
     [key: string]: boolean | null;
   }>({});
+  const [loadingVotes, setLoadingVotes] = useState<{ [key: string]: boolean }>(
+    {}
+  );
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function refreshStreams() {
     try {
       const res = await axios.get(`/api/streams/?creatorId=${creatorId}`, {
         withCredentials: true,
       });
-
       setStreams(res.data.streams);
+
+      if (loading) setLoading(false);
     } catch (error) {
       console.error("Error fetching streams:", error);
       setError("Failed to load streams.");
     }
   }
-  console.log(streams);
 
   useEffect(() => {
-    // Load liked videos from local storage
     const storedLikes = localStorage.getItem("likedVideos");
     if (storedLikes) {
       setLikedVideos(JSON.parse(storedLikes));
@@ -76,6 +81,7 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
       setError("Invalid YouTube URL.");
       return;
     }
+    setIsSubmitting(true);
     try {
       await axios.post("/api/streams", {
         creatorId: creatorId,
@@ -86,10 +92,14 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
     } catch (error) {
       console.error("Error adding video:", error);
       setError("Failed to add video.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleVote = async (id: string, isUpvote: boolean) => {
+    setLoadingVotes((prev) => ({ ...prev, [id]: true })); // Set loading for the specific video
+
     setStreams((prevStreams) =>
       prevStreams
         .map((video) =>
@@ -119,6 +129,8 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
     } catch (error) {
       console.error("Error updating vote:", error);
       setError("Failed to update the vote.");
+    } finally {
+      setLoadingVotes((prev) => ({ ...prev, [id]: false })); // Clear loading state
     }
   };
 
@@ -135,15 +147,26 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
       navigator.share({
         title: "Check out this page",
         text: "Have a look at this video-sharing page!",
-        url: ` ${window.location.href}/creator/${creatorId} `,
+        url: `${window.location.href}/creator/${creatorId}`,
       });
     } else {
       alert("Sharing is not supported on this browser.");
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-blue-100 text-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-lg font-semibold text-gray-900">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-900 text-gray-100">
+    <div className="flex flex-col min-h-screen bg-[#b6d0d1] text-gray-950">
       <Appbar />
       <div className="container mx-auto p-4 flex-grow">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -205,7 +228,9 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
                 color="#000"
                 className="flex-grow"
               />
-              <Button type="submit">Add</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Adding..." : "Add"}
+              </Button>
             </form>
             {error && <p className="text-red-500">{error}</p>}
 
@@ -219,7 +244,6 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
                       alt={video.title}
                       className="h-14 w-15 mr-4 rounded"
                     />
-
                     <div className="flex-grow">
                       <h3 className="font-semibold">{video.title}</h3>
                       <p className="text-sm text-gray-400">
@@ -233,10 +257,16 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
                         onClick={() => handleVote(video.id, true)}
                         className={clsx(
                           "flex items-center",
-                          likedVideos[video.id] === true ? "text-green-500" : ""
+                          likedVideos[video.id] === true && "text-green-400"
                         )}
+                        disabled={loadingVotes[video.id]} // Disable button while loading
                       >
-                        <ThumbsUp className="h-4 w-4" />
+                        {loadingVotes[video.id] ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-green-500 mr-1" />
+                        ) : (
+                          <ThumbsUp className="mr-1 h-4 w-4" />
+                        )}
+                        upvote
                       </Button>
                       <Button
                         variant="ghost"
@@ -244,10 +274,16 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
                         onClick={() => handleVote(video.id, false)}
                         className={clsx(
                           "flex items-center",
-                          likedVideos[video.id] === false ? "text-red-500" : ""
+                          likedVideos[video.id] === false && "text-red-400"
                         )}
+                        disabled={loadingVotes[video.id]} // Disable button while loading
                       >
-                        <ThumbsDown className="h-4 w-4" />
+                        {loadingVotes[video.id] ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-red-500 mr-1" />
+                        ) : (
+                          <ThumbsDown className="mr-1 h-4 w-4" />
+                        )}
+                        downvote
                       </Button>
                     </div>
                   </CardContent>
