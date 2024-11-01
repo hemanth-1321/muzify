@@ -1,7 +1,7 @@
-import { Appbar } from "@/components/Appbar";
-import { Redirect } from "@/components/Redirect";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Appbar } from "@/app/components/Appbar";
+import { Redirect } from "@/app/components/Redirect";
+import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
 import { Music, Users, Zap, Radio } from "lucide-react";
 import Link from "next/link";
 

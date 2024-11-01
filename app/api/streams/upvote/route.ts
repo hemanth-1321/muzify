@@ -17,36 +17,26 @@ export async function POST(req: NextRequest) {
   });
 
   if (!user) {
-    return NextResponse.json(
-      {
-        message: "UnAuthenticated",
-      },
-      {
-        status: 403,
-      }
-    );
+    return NextResponse.json({ message: "UnAuthenticated" }, { status: 403 });
   }
+
   try {
     const data = UpvoteSchema.parse(await req.json());
+
+    // Create a new upvote if it doesn't exist
     await prismaClient.upvote.create({
       data: {
         userId: user.id,
         streamId: data.streamId,
       },
     });
-    return NextResponse.json({
-      message: "upvoted!",
-    });
+
+    return NextResponse.json({ message: "Upvoted!" });
   } catch (error) {
     console.error("Error while upvoting:", error);
     return NextResponse.json(
-      {
-        message: "Error while upvoting",
-      },
-
-      {
-        status: 403,
-      }
+      { message: "Error while upvoting" },
+      { status: 403 }
     );
   }
 }
